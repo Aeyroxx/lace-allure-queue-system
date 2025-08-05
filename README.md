@@ -51,8 +51,8 @@ A modern, real-time queue management system built with Node.js for retail enviro
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/lace-allure-queue.git
-   cd lace-allure-queue
+   git clone https://github.com/Aeyroxx/lace-allure-queue-system.git
+   cd lace-allure-queue-system
    ```
 
 2. **Install dependencies**
@@ -82,8 +82,8 @@ A modern, real-time queue management system built with Node.js for retail enviro
 #### Using Docker Compose (Recommended)
 ```bash
 # Clone and navigate to project
-git clone https://github.com/yourusername/lace-allure-queue.git
-cd lace-allure-queue
+git clone https://github.com/Aeyroxx/lace-allure-queue-system.git
+cd lace-allure-queue-system
 
 # Deploy with Docker Compose
 docker-compose up -d
@@ -92,12 +92,27 @@ docker-compose up -d
 # http://your-server:12025
 ```
 
-#### Portainer Stack Deployment
-1. Copy the `docker-compose.yml` content
-2. Create a new Stack in Portainer
-3. Paste the configuration
-4. Deploy the stack
-5. Access on port 12025
+#### 🐳 Portainer Stack Deployment (Production Ready)
+
+**Method 1: GitHub Repository (Easiest)**
+1. **Portainer Dashboard** → **Stacks** → **Add Stack**
+2. **Name**: `lace-allure-queue`
+3. **Build method**: **Repository**
+4. **Repository URL**: `https://github.com/Aeyroxx/lace-allure-queue-system`
+5. **Reference**: `refs/heads/main`
+6. **Compose path**: `docker-compose.yml`
+7. **Deploy the stack**
+
+**Method 2: Web Editor**
+1. **Portainer Dashboard** → **Stacks** → **Add Stack**
+2. **Name**: `lace-allure-queue`
+3. **Build method**: **Web editor**
+4. Copy the `docker-compose.yml` content from the repository
+5. **Deploy the stack**
+
+**Access**: `http://your-server-ip:12025`
+
+📖 **Detailed Guide**: See `PORTAINER_DEPLOYMENT_GUIDE.md` for complete instructions
 
 ## 🔧 Configuration
 
