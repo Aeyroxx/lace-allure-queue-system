@@ -6,7 +6,6 @@
 
 Before deploying in Portainer, ensure you have:
 - ✅ **Portainer** installed and running
-- ✅ **MongoDB server** at `192.168.1.200` accessible
 - ✅ **Port 12025** available on your server
 - ✅ **Docker** installed on your Portainer host
 
@@ -33,8 +32,7 @@ Add these if you want to customize settings:
 ```env
 NODE_ENV=production
 PORT=12025
-MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
-USE_MONGODB=true
+USE_MONGODB=false
 ```
 
 ### Step 4: Deploy
@@ -68,8 +66,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=12025
-      - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
-      - USE_MONGODB=true
+      - USE_MONGODB=false
     volumes:
       - ./:/app
       - queue_data:/app/data
@@ -121,8 +118,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=12025
-      - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
-      - USE_MONGODB=true
+      - USE_MONGODB=false
     volumes:
       - queue_data:/app/data
       - audio_data:/app/public/audio
@@ -157,17 +153,14 @@ networks:
 |----------|---------|-------------|
 | `PORT` | `12025` | Application port |
 | `NODE_ENV` | `production` | Environment mode |
-| `MONGODB_URL` | `mongodb://192.168.1.200:27017/lace-allure-queue` | MongoDB connection |
-| `USE_MONGODB` | `true` | Use MongoDB (false for JSON files) |
+| `USE_MONGODB` | `false` | Use MongoDB (true) or JSON files (false) |
 
 ### Custom Configuration Example:
 ```yaml
 environment:
   - NODE_ENV=production
   - PORT=12025
-  - MONGODB_URL=mongodb://your-mongo-server:27017/your-database
-  - USE_MONGODB=true
-  - TTS_ENABLED=true
+  - USE_MONGODB=false
 ```
 
 ---
@@ -203,21 +196,21 @@ environment:
 ```bash
 # Common issues:
 # 1. Port already in use
-# 2. MongoDB connection failed
-# 3. Missing dependencies
+# 2. Missing dependencies
+# 3. File permission issues
 ```
 
 **Solutions:**
 1. **Change port** in environment variables
-2. **Verify MongoDB** is accessible from container
+2. **Check file permissions** for data directory
 3. **Rebuild** with `docker-compose build --no-cache`
 
-### MongoDB Connection Issues
+### Data Storage Issues
 ```yaml
-# Test MongoDB connectivity
-environment:
-  - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
-  - USE_MONGODB=false  # Temporarily use JSON files
+# Ensure data persistence
+volumes:
+  - queue_data:/app/data
+  - audio_data:/app/public/audio
 ```
 
 ### Audio Not Working

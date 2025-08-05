@@ -12,7 +12,7 @@ const QUEUE_FILE = path.join(__dirname, 'data', 'queue.json');
 
 class DatabaseManager {
     constructor() {
-        this.useMongoDb = process.env.USE_MONGODB === 'true';
+        this.useMongoDb = process.env.USE_MONGODB === 'true' && process.env.MONGODB_URL;
         this.mongoUrl = process.env.MONGODB_URL || 'mongodb://localhost:27017/lace-allure-queue';
         this.isConnected = false;
     }

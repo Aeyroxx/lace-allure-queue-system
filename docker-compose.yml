@@ -9,8 +9,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=12025
-      - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
-      - USE_MONGODB=true
+      - USE_MONGODB=false
     volumes:
       # Mount data directory for JSON fallback
       - queue_data:/app/data
