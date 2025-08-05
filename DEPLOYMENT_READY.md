@@ -31,10 +31,10 @@ services:
     build: .
     container_name: lace-allure-queue
     ports:
-      - "12025:12025"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - PORT=12025
+      - PORT=3000
       - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
       - USE_MONGODB=true
     volumes:
@@ -44,7 +44,7 @@ services:
     networks:
       - queue_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:12025/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -72,7 +72,7 @@ networks:
 ## 🎯 What Will Work After Deployment
 
 ### ✅ Core Features
-- **Real-time queue management** on port 12025
+- **Real-time queue management** on port 3000
 - **MongoDB integration** with your server at 192.168.1.200
 - **Android TV audio compatibility** (server-side TTS)
 - **Socket.io real-time updates**
@@ -81,10 +81,10 @@ networks:
 - **Follow-up system for orders**
 
 ### 🌐 Access URLs
-- **Main Dashboard**: `http://your-server-ip:12025`
-- **Current Queue**: `http://your-server-ip:12025/queue`
-- **Add Orders**: `http://your-server-ip:12025/add-queue`
-- **Admin Panel**: `http://your-server-ip:12025/admin`
+- **Main Dashboard**: `http://your-server-ip:3000`
+- **Current Queue**: `http://your-server-ip:3000/queue`
+- **Add Orders**: `http://your-server-ip:3000/add-queue`
+- **Admin Panel**: `http://your-server-ip:3000/admin`
 
 ### 📦 Courier Options
 - SPX, Flash, J&T, LEX, Ninja Van, Ximex, JT Cargo
@@ -111,10 +111,10 @@ networks:
 ## 🚨 Important Notes
 
 1. **Make sure MongoDB is accessible** from your Portainer host
-2. **Port 12025 should be available** on your server
+2. **Port 3000 should be available** on your server
 3. **Audio files** will be temporarily stored in Docker volumes
 4. **Data persistence** is handled through Docker volumes
 
 ## ✅ Ready to Deploy!
 
-Everything is configured and ready. Just upload the project folder to Portainer and deploy using the stack configuration above. Your queue system will be live on port 12025 with full MongoDB integration and Android TV compatibility!
+Everything is configured and ready. Just upload the project folder to Portainer and deploy using the stack configuration above. Your queue system will be live on port 3000 with full MongoDB integration and Android TV compatibility!

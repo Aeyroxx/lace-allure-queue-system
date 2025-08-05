@@ -50,8 +50,8 @@ jobs:
     
     - name: Test Docker container
       run: |
-        docker run -d --name test-container -p 12025:12025 -e USE_MONGODB=false lace-allure-queue:latest
+        docker run -d --name test-container -p 3000:3000 -e USE_MONGODB=false lace-allure-queue:latest
         sleep 10
-        curl -f http://localhost:12025/ || exit 1
+        curl -f http://localhost:3000/ || exit 1
         docker stop test-container
         docker rm test-container

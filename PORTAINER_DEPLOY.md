@@ -9,7 +9,7 @@
 
 ## Environment Variables
 
-- `PORT`: Application port (default: 12025)
+- `PORT`: Application port (default: 3000)
 - `MONGODB_URL`: MongoDB connection string (default: mongodb://192.168.1.200:27017/lace-allure-queue)
 - `USE_MONGODB`: Set to 'true' to use MongoDB, 'false' for JSON files (default: true)
 - `NODE_ENV`: Environment (default: production)
@@ -28,10 +28,10 @@
 
 ## Access
 
-- **Main Application**: http://your-server:12025
-- **Queue View**: http://your-server:12025/queue
-- **Add Orders**: http://your-server:12025/add-queue
-- **Admin Panel**: http://your-server:12025/admin
+- **Main Application**: http://your-server:3000
+- **Queue View**: http://your-server:3000/queue
+- **Add Orders**: http://your-server:3000/add-queue
+- **Admin Panel**: http://your-server:3000/admin
 
 ## Data Persistence
 
@@ -55,10 +55,10 @@ services:
     build: .
     container_name: lace-allure-queue
     ports:
-      - "12025:12025"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - PORT=12025
+      - PORT=3000
       - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
       - USE_MONGODB=true
     volumes:
@@ -68,7 +68,7 @@ services:
     networks:
       - queue_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:12025/"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3

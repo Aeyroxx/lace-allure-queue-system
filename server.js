@@ -7,7 +7,6 @@ const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const say = require('say');
-const DatabaseManager = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,8 +17,52 @@ const io = socketIo(server, {
     }
 });
 
-// Initialize database manager
-const db = new DatabaseManager();
+const PORT = process.env.PORT || 3000;
+
+// Data file paths
+const PRODUCTS_FILE = path.join(__dirname, 'data', 'products.json');
+const QUEUE_FILE = path.join(__dirname, 'data', 'queue.json');
+
+// Ensure data directory exists
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Initialize data files
+if (!fs.existsSync(PRODUCTS_FILE)) {
+    const defaultProducts = [
+        {
+            id: uuidv4(),
+            name: "Embroidery",
+            sizes: ["S", "M", "L", "XL", "2XL", "3XL", "4XL"],
+            colors: [
+                "Mocca-Mocca",
+                "Mocca-Black",
+                "Black-Mocca",
+                "Mocca-Brown",
+                "Mocca-Mocca(Floral)"
+            ]
+        },
+        {
+            id: uuidv4(),
+            name: "DTF",
+            sizes: ["S", "M", "L", "XL", "2XL", "3XL", "4XL"],
+            colors: [
+                "White",
+                "Black",
+                "Gray",
+                "Navy",
+                "Red"
+            ]
+        }
+    ];
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(defaultProducts, null, 2));
+}
+
+if (!fs.existsSync(QUEUE_FILE)) {
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify([], null, 2));
+}
 
 // Middleware
 app.use(cors());
@@ -28,18 +71,197 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Helper functions
+function readJsonFile(filePath) {
+    try {
+        const data = fs.readFileSync(filePath, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        console.error(`Error reading ${filePath}:`, error);
+        return [];
+    }
+}
+
+function writeJsonFile(filePath, data) {
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        return true;
+    } catch (error) {
+        console.error(`Error writing ${filePath}:`, error);
+        return false;
+    }
+}
+
 // Routes
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
     res.render('index');
 });
 
-app.get('/queue', async (req, res) => {
-    try {
-        const queue = await db.getQueue();
-        res.render('queue', { queue });
-    } catch (error) {
-        console.error('Error loading queue:', error);
-        res.render('queue', { queue: [] });
+app.get('/queue', (req, res) => {
+    const queue = readJsonFile(QUEUE_FILE);
+    res.render('queue', { queue });
+});
+
+app.get('/add-queue', (req, res) => {
+    const products = readJsonFile(PRODUCTS_FILE);
+    res.render('add-queue', { products });
+});
+
+app.get('/admin', (req, res) => {
+    const products = readJsonFile(PRODUCTS_FILE);
+    res.render('admin', { products });
+});
+
+// API Routes
+app.get('/api/products', (req, res) => {
+    const products = readJsonFile(PRODUCTS_FILE);
+    res.json(products);
+});
+
+app.post('/api/products', (req, res) => {
+    const { name, sizes, colors } = req.body;
+    
+    if (!name || !sizes || !colors) {
+        return res.status(400).json({ error: 'Name, sizes, and colors are required' });
+    }
+    
+    const products = readJsonFile(PRODUCTS_FILE);
+    const newProduct = {
+        id: uuidv4(),
+        name,
+        sizes: Array.isArray(sizes) ? sizes : sizes.split(',').map(s => s.trim()),
+        colors: Array.isArray(colors) ? colors : colors.split(',').map(c => c.trim())
+    };
+    
+    products.push(newProduct);
+    
+    if (writeJsonFile(PRODUCTS_FILE, products)) {
+        res.json(newProduct);
+    } else {
+        res.status(500).json({ error: 'Failed to save product' });
+    }
+});
+
+app.delete('/api/products/:id', (req, res) => {
+    const { id } = req.params;
+    const products = readJsonFile(PRODUCTS_FILE);
+    const filteredProducts = products.filter(p => p.id !== id);
+    
+    if (writeJsonFile(PRODUCTS_FILE, filteredProducts)) {
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ error: 'Failed to delete product' });
+    }
+});
+
+app.get('/api/queue', (req, res) => {
+    const queue = readJsonFile(QUEUE_FILE);
+    res.json(queue);
+});
+
+app.post('/api/queue', (req, res) => {
+    const { productName, size, color, quantity, courier, notes, status } = req.body;
+    
+    if (!productName || !size || !quantity || !courier) {
+        return res.status(400).json({ error: 'Product name, size, quantity, and courier are required' });
+    }
+    
+    const queue = readJsonFile(QUEUE_FILE);
+    const newItem = {
+        id: uuidv4(),
+        productName,
+        size,
+        color: color || '',
+        quantity: parseInt(quantity),
+        courier,
+        notes: notes || '',
+        status: status || 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        followUps: []
+    };
+    
+    queue.push(newItem);
+    
+    if (writeJsonFile(QUEUE_FILE, queue)) {
+        // Emit to all clients
+        io.emit('new-queue-item', newItem);
+        res.json(newItem);
+    } else {
+        res.status(500).json({ error: 'Failed to save queue item' });
+    }
+});
+
+app.put('/api/queue/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const queue = readJsonFile(QUEUE_FILE);
+    const itemIndex = queue.findIndex(item => item.id === id);
+    
+    if (itemIndex === -1) {
+        return res.status(404).json({ error: 'Queue item not found' });
+    }
+    
+    queue[itemIndex].status = status;
+    queue[itemIndex].updatedAt = new Date().toISOString();
+    
+    if (writeJsonFile(QUEUE_FILE, queue)) {
+        const updatedItem = queue[itemIndex];
+        io.emit('queue-item-updated', updatedItem);
+        res.json(updatedItem);
+    } else {
+        res.status(500).json({ error: 'Failed to update queue item' });
+    }
+});
+
+app.post('/api/queue/:id/follow-up', (req, res) => {
+    const { id } = req.params;
+    const { message } = req.body;
+    
+    if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    const queue = readJsonFile(QUEUE_FILE);
+    const itemIndex = queue.findIndex(item => item.id === id);
+    
+    if (itemIndex === -1) {
+        return res.status(404).json({ error: 'Queue item not found' });
+    }
+    
+    const followUp = {
+        id: uuidv4(),
+        message,
+        timestamp: new Date().toISOString()
+    };
+    
+    if (!queue[itemIndex].followUps) {
+        queue[itemIndex].followUps = [];
+    }
+    
+    queue[itemIndex].followUps.push(followUp);
+    queue[itemIndex].updatedAt = new Date().toISOString();
+    
+    if (writeJsonFile(QUEUE_FILE, queue)) {
+        const updatedItem = queue[itemIndex];
+        io.emit('queue-item-updated', updatedItem);
+        res.json(updatedItem);
+    } else {
+        res.status(500).json({ error: 'Failed to add follow-up' });
+    }
+});
+
+app.delete('/api/queue/:id', (req, res) => {
+    const { id } = req.params;
+    const queue = readJsonFile(QUEUE_FILE);
+    const filteredQueue = queue.filter(item => item.id !== id);
+    
+    if (writeJsonFile(QUEUE_FILE, filteredQueue)) {
+        io.emit('queue-item-deleted', { id });
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ error: 'Failed to delete queue item' });
     }
 });
 
@@ -50,245 +272,62 @@ app.post('/api/generate-audio', (req, res) => {
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
     }
-
-    const audioId = uuidv4();
-    const audioPath = path.join(__dirname, 'public', 'audio', `${audioId}.wav`);
     
-    // Generate speech using server-side TTS
-    say.export(message, null, 0.8, audioPath, (err) => {
+    const audioDir = path.join(__dirname, 'public', 'audio');
+    if (!fs.existsSync(audioDir)) {
+        fs.mkdirSync(audioDir, { recursive: true });
+    }
+    
+    const filename = `tts_${Date.now()}.wav`;
+    const outputPath = path.join(audioDir, filename);
+    
+    // Use 'say' library for cross-platform TTS
+    say.export(message, null, 1.0, outputPath, (err) => {
         if (err) {
             console.error('TTS Error:', err);
             return res.status(500).json({ error: 'Failed to generate audio' });
         }
         
-        // Return the audio file URL
         res.json({ 
-            audioUrl: `/audio/${audioId}.wav`,
-            audioId: audioId 
+            audioUrl: `/audio/${filename}`,
+            message: message
         });
+        
+        // Clean up old audio files after 5 minutes
+        setTimeout(() => {
+            try {
+                if (fs.existsSync(outputPath)) {
+                    fs.unlinkSync(outputPath);
+                }
+            } catch (error) {
+                console.error('Error cleaning up audio file:', error);
+            }
+        }, 5 * 60 * 1000);
     });
 });
 
-// Clean up old audio files endpoint
-app.delete('/api/cleanup-audio/:audioId', (req, res) => {
-    const { audioId } = req.params;
-    const audioPath = path.join(__dirname, 'public', 'audio', `${audioId}.wav`);
-    
-    try {
-        if (fs.existsSync(audioPath)) {
-            fs.unlinkSync(audioPath);
-        }
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Audio cleanup error:', error);
-        res.status(500).json({ error: 'Failed to cleanup audio' });
-    }
-});
-
-app.get('/add-queue', async (req, res) => {
-    try {
-        const products = await db.getProducts();
-        res.render('add-queue', { products });
-    } catch (error) {
-        console.error('Error loading products:', error);
-        res.render('add-queue', { products: [] });
-    }
-});
-
-app.get('/admin', async (req, res) => {
-    try {
-        const products = await db.getProducts();
-        res.render('admin', { products });
-    } catch (error) {
-        console.error('Error loading products:', error);
-        res.render('admin', { products: [] });
-    }
-});
-
-// API Routes
-app.get('/api/queue', async (req, res) => {
-    try {
-        const queue = await db.getQueue();
-        res.json(queue);
-    } catch (error) {
-        console.error('Error fetching queue:', error);
-        res.status(500).json({ error: 'Failed to fetch queue' });
-    }
-});
-
-app.get('/api/products', async (req, res) => {
-    try {
-        const products = await db.getProducts();
-        res.json(products);
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({ error: 'Failed to fetch products' });
-    }
-});
-
-app.post('/api/products', async (req, res) => {
-    try {
-        const { name, sizes, colors } = req.body;
-        const productData = {
-            name,
-            sizes: sizes || ['S', 'M', 'L', 'XL'],
-            colors: colors || ['Black', 'White', 'Red', 'Blue']
-        };
-        
-        const newProduct = await db.addProduct(productData);
-        const allProducts = await db.getProducts();
-        
-        io.emit('products-updated', allProducts);
-        res.json(newProduct);
-    } catch (error) {
-        console.error('Error adding product:', error);
-        res.status(500).json({ error: 'Failed to add product' });
-    }
-});
-
-app.delete('/api/products/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const deletedProduct = await db.deleteProduct(id);
-        
-        if (deletedProduct) {
-            const allProducts = await db.getProducts();
-            io.emit('products-updated', allProducts);
-            res.json({ message: 'Product deleted successfully' });
-        } else {
-            res.status(404).json({ error: 'Product not found' });
-        }
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        res.status(500).json({ error: 'Failed to delete product' });
-    }
-});
-
-app.post('/api/queue', async (req, res) => {
-    try {
-        const { productId, productName, size, color, quantity, courier } = req.body;
-        
-        const queueData = {
-            productId,
-            productName,
-            size,
-            color,
-            quantity: parseInt(quantity),
-            courier,
-            status: 'pending'
-        };
-        
-        const newQueueItem = await db.addQueueItem(queueData);
-        const allQueue = await db.getQueue();
-        
-        // Emit new queue item to all connected clients
-        io.emit('new-queue-item', newQueueItem);
-        io.emit('queue-updated', allQueue);
-        
-        res.json(newQueueItem);
-    } catch (error) {
-        console.error('Error adding queue item:', error);
-        res.status(500).json({ error: 'Failed to add queue item' });
-    }
-});
-
-app.put('/api/queue/:id/status', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-        
-        const updatedItem = await db.updateQueueItemStatus(id, status);
-        
-        if (updatedItem) {
-            const allQueue = await db.getQueue();
-            io.emit('queue-updated', allQueue);
-            io.emit('status-updated', { id, status });
-            res.json(updatedItem);
-        } else {
-            res.status(404).json({ error: 'Queue item not found' });
-        }
-    } catch (error) {
-        console.error('Error updating queue item status:', error);
-        res.status(500).json({ error: 'Failed to update status' });
-    }
-});
-
-app.post('/api/queue/:id/follow-up', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { message } = req.body;
-        
-        const updatedItem = await db.addFollowUp(id, message);
-        
-        if (updatedItem) {
-            const followUp = updatedItem.followUps[updatedItem.followUps.length - 1];
-            const allQueue = await db.getQueue();
-            
-            io.emit('follow-up-added', { queueItemId: id, followUp });
-            io.emit('queue-updated', allQueue);
-            res.json(updatedItem);
-        } else {
-            res.status(404).json({ error: 'Queue item not found' });
-        }
-    } catch (error) {
-        console.error('Error adding follow-up:', error);
-        res.status(500).json({ error: 'Failed to add follow-up' });
-    }
-});
-
-app.delete('/api/queue/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const deletedItem = await db.deleteQueueItem(id);
-        
-        if (deletedItem) {
-            const allQueue = await db.getQueue();
-            io.emit('queue-updated', allQueue);
-            res.json({ message: 'Queue item deleted successfully' });
-        } else {
-            res.status(404).json({ error: 'Queue item not found' });
-        }
-    } catch (error) {
-        console.error('Error deleting queue item:', error);
-        res.status(500).json({ error: 'Failed to delete queue item' });
-    }
-});
-
 // Socket.io connection handling
-io.on('connection', async (socket) => {
-    console.log('A user connected:', socket.id);
-    
-    // Send current queue to newly connected client
-    try {
-        const currentQueue = await db.getQueue();
-        socket.emit('queue-updated', currentQueue);
-    } catch (error) {
-        console.error('Error sending initial queue:', error);
-        socket.emit('queue-updated', []);
-    }
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
     
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
 });
 
-// Initialize database and start server
-async function startServer() {
-    try {
-        await db.initialize();
-        console.log('📦 Database initialized successfully');
-        
-        const PORT = process.env.PORT || 12025;
-        server.listen(PORT, '0.0.0.0', () => {
-            console.log(`🚀 Lace and Allure Queue System running on port ${PORT}`);
-            console.log(`🌐 Visit http://localhost:${PORT} to access the application`);
-            console.log(`🐳 Docker ready - accessible on port 12025`);
-        });
-    } catch (error) {
-        console.error('❌ Failed to start server:', error);
-        process.exit(1);
-    }
-}
+// Start server
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Lace & Allure Queue System running on port ${PORT}`);
+    console.log(`📂 Data storage: JSON files`);
+    console.log(`🎵 TTS Audio: ${say ? 'Available' : 'Not available'}`);
+    console.log(`🌐 Access: http://localhost:${PORT}`);
+});
 
-// Start the server
-startServer();
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});

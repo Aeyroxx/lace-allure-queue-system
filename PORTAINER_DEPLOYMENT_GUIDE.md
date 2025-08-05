@@ -6,7 +6,7 @@
 
 Before deploying in Portainer, ensure you have:
 - ✅ **Portainer** installed and running
-- ✅ **Port 12025** available on your server
+- ✅ **Port 3000** available on your server
 - ✅ **Docker** installed on your Portainer host
 
 ---
@@ -31,7 +31,7 @@ Before deploying in Portainer, ensure you have:
 Add these if you want to customize settings:
 ```env
 NODE_ENV=production
-PORT=12025
+PORT=3000
 USE_MONGODB=false
 ```
 
@@ -62,10 +62,10 @@ services:
     working_dir: /app
     command: sh -c "npm install && npm start"
     ports:
-      - "12025:12025"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - PORT=12025
+      - PORT=3000
       - USE_MONGODB=false
     volumes:
       - ./:/app
@@ -76,7 +76,7 @@ services:
     networks:
       - queue_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:12025/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,7 +96,7 @@ networks:
 ### Step 3: Deploy Stack
 1. Click **Deploy the stack**
 2. Monitor the **Logs** for build progress
-3. Wait for "Server running on port 12025" message
+3. Wait for "Server running on port 3000" message
 
 ---
 
@@ -114,10 +114,10 @@ services:
       dockerfile: Dockerfile
     container_name: lace-allure-queue
     ports:
-      - "12025:12025"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - PORT=12025
+      - PORT=3000
       - USE_MONGODB=false
     volumes:
       - queue_data:/app/data
@@ -126,7 +126,7 @@ services:
     networks:
       - queue_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:12025/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -151,7 +151,7 @@ networks:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `12025` | Application port |
+| `PORT` | `3000` | Application port |
 | `NODE_ENV` | `production` | Environment mode |
 | `USE_MONGODB` | `false` | Use MongoDB (true) or JSON files (false) |
 
@@ -159,7 +159,7 @@ networks:
 ```yaml
 environment:
   - NODE_ENV=production
-  - PORT=12025
+  - PORT=3000
   - USE_MONGODB=false
 ```
 
@@ -175,17 +175,17 @@ environment:
 ### 2. View Logs
 - Click on container name
 - Go to **Logs** tab
-- Look for: `Server running on port 12025`
+- Look for: `Server running on port 3000`
 
 ### 3. Health Check
 - Container should show **Healthy** status
 - Health check runs every 30 seconds
 
 ### 4. Access Application
-- **URL**: `http://your-server-ip:12025`
-- **Queue View**: `http://your-server-ip:12025/queue`
-- **Add Orders**: `http://your-server-ip:12025/add-queue`
-- **Admin Panel**: `http://your-server-ip:12025/admin`
+- **URL**: `http://your-server-ip:3000`
+- **Queue View**: `http://your-server-ip:3000/queue`
+- **Add Orders**: `http://your-server-ip:3000/add-queue`
+- **Admin Panel**: `http://your-server-ip:3000/admin`
 
 ---
 
@@ -259,7 +259,7 @@ deploy:
 ### Application Health Check
 ```bash
 # Manual health check
-curl -f http://your-server:12025/
+curl -f http://your-server:3000/
 # Should return HTTP 200 OK
 ```
 
@@ -280,7 +280,7 @@ Your queue system will be accessible on mobile devices:
 2. **Choose method**: Repository or Web editor
 3. **Use GitHub URL**: `https://github.com/Aeyroxx/lace-allure-queue-system`
 4. **Deploy** and wait for completion
-5. **Access**: `http://your-server:12025`
+5. **Access**: `http://your-server:3000`
 
 Your queue management system will be ready in just a few minutes! 🚀
 
@@ -291,7 +291,7 @@ Your queue management system will be ready in just a few minutes! 🚀
 If you encounter issues:
 1. Check **container logs** in Portainer
 2. Verify **MongoDB connectivity**
-3. Ensure **port 12025** is not blocked
+3. Ensure **port 3000** is not blocked
 4. Review **health check status**
 
 **Your Lace & Allure Queue System is now ready for production use!** 🎉

@@ -88,8 +88,8 @@ cd lace-allure-queue-system
 # Deploy with Docker Compose
 docker-compose up -d
 
-# Access on port 12025
-# http://your-server:12025
+# Access on port 3000
+# http://your-server:3000
 ```
 
 #### 🐳 Portainer Stack Deployment (Production Ready)
@@ -110,7 +110,7 @@ docker-compose up -d
 4. Copy the `docker-compose.yml` content from the repository
 5. **Deploy the stack**
 
-**Access**: `http://your-server-ip:12025`
+**Access**: `http://your-server-ip:3000`
 
 📖 **Detailed Guide**: See `PORTAINER_DEPLOYMENT_GUIDE.md` for complete instructions
 
@@ -245,7 +245,7 @@ MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
 PORT=12026
 
 # Or kill process using the port
-npx kill-port 12025
+npx kill-port 3000
 ```
 
 **Docker Build Issues**
