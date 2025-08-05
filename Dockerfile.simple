@@ -1,0 +1,24 @@
+# Simple Dockerfile that doesn't break anything
+FROM node:18-alpine
+
+# Install only essential dependencies for TTS
+RUN apk add --no-cache espeak
+
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY package*.json ./
+RUN npm install
+
+# Copy the entire project
+COPY . .
+
+# Ensure directories exist with proper permissions
+RUN mkdir -p data public/audio && \
+    chmod -R 755 data public/audio
+
+# Use the same port as local
+EXPOSE 3000
+
+# Simple startup that works
+CMD ["npm", "start"]

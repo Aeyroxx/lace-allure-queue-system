@@ -1,0 +1,27 @@
+# Super simple Dockerfile that preserves all functionality
+FROM node:18-alpine
+
+# Install only essential TTS support
+RUN apk add --no-cache espeak
+
+# Set working directory
+WORKDIR /app
+
+# Copy everything at once (simpler approach)
+COPY . .
+
+# Install all dependencies (including dev dependencies for full functionality)
+RUN npm install
+
+# Ensure data directories exist
+RUN mkdir -p data public/audio
+
+# Expose port
+EXPOSE 3000
+
+# Keep environment as development to preserve all features
+ENV NODE_ENV=development
+ENV PORT=3000
+
+# Start with npm start (same as local)
+CMD ["npm", "start"]

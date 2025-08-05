@@ -1,0 +1,22 @@
+# Simple docker-compose that maintains all functionality
+version: '3.8'
+
+services:
+  lace-allure-queue:
+    build: 
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: lace-allure-queue
+    ports:
+      - "3000:3000"
+    volumes:
+      # Keep data persistent but don't overwrite the app
+      - ./data:/app/data
+      - audio_files:/app/public/audio
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development  # Use development to keep all features
+      - PORT=3000
+
+volumes:
+  audio_files:

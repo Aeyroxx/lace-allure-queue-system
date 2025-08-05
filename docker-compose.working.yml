@@ -1,0 +1,25 @@
+# Working docker-compose for Portainer
+version: '3.8'
+
+services:
+  lace-allure-queue:
+    build:
+      context: .
+      dockerfile: Dockerfile.working
+    container_name: lace-allure-queue
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount local data directory to preserve data
+      - ./data:/app/data
+      # Separate volume for audio files
+      - audio_files:/app/public/audio
+    restart: unless-stopped
+    environment:
+      # Keep as development to preserve all features
+      - NODE_ENV=development
+      - PORT=3000
+
+volumes:
+  audio_files:
+    driver: local
