@@ -1,46 +1,20 @@
-const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-// MongoDB Models
-const Product = require('./models/Product');
-const QueueItem = require('./models/QueueItem');
-
-// File paths for JSON fallback
+// File paths for JSON storage
 const PRODUCTS_FILE = path.join(__dirname, 'data', 'products.json');
 const QUEUE_FILE = path.join(__dirname, 'data', 'queue.json');
 
 class DatabaseManager {
     constructor() {
-        this.useMongoDb = process.env.USE_MONGODB === 'true' && process.env.MONGODB_URL;
-        this.mongoUrl = process.env.MONGODB_URL || 'mongodb://localhost:27017/lace-allure-queue';
+        this.useMongoDb = false; // Always use JSON files
         this.isConnected = false;
     }
 
     async initialize() {
-        if (this.useMongoDb) {
-            try {
-                await this.connectMongoDB();
-                console.log('✅ Using MongoDB for data storage');
-                return true;
-            } catch (error) {
-                console.error('❌ MongoDB connection failed, falling back to JSON files:', error.message);
-                this.useMongoDb = false;
-            }
-        }
-        
         console.log('📁 Using JSON files for data storage');
         this.initializeJsonFiles();
         return true;
-    }
-
-    async connectMongoDB() {
-        await mongoose.connect(this.mongoUrl, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
-        this.isConnected = true;
-        console.log('🔗 Connected to MongoDB at:', this.mongoUrl);
     }
 
     initializeJsonFiles() {
@@ -48,166 +22,180 @@ class DatabaseManager {
         if (!fs.existsSync(path.dirname(PRODUCTS_FILE))) {
             fs.mkdirSync(path.dirname(PRODUCTS_FILE), { recursive: true });
         }
-        
-        // Initialize files if they don't exist
+
+        // Initialize products file if it doesn't exist
         if (!fs.existsSync(PRODUCTS_FILE)) {
-            fs.writeFileSync(PRODUCTS_FILE, JSON.stringify([], null, 2));
+            const defaultProducts = [
+                {
+                    id: "default-product-1",
+                    name: "Embroidery",
+                    sizes: ["S", "M", "L", "XL", "2XL", "3XL", "4XL"],
+                    colors: [
+                        "Mocca-Mocca",
+                        "Mocca-Black", 
+                        "Black-Mocca",
+                        "Mocca-Brown",
+                        "Mocca-Mocca(Floral)"
+                    ],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            ];
+            fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(defaultProducts, null, 2));
         }
-        
+
+        // Initialize queue file if it doesn't exist
         if (!fs.existsSync(QUEUE_FILE)) {
             fs.writeFileSync(QUEUE_FILE, JSON.stringify([], null, 2));
         }
+        
+        console.log('✅ JSON files initialized successfully');
     }
 
     // Product methods
     async getProducts() {
-        if (this.useMongoDb && this.isConnected) {
-            return await Product.find().sort({ createdAt: -1 });
-        } else {
-            return this.readJsonFile(PRODUCTS_FILE);
+        try {
+            const data = fs.readFileSync(PRODUCTS_FILE, 'utf8');
+            return JSON.parse(data);
+        } catch (error) {
+            console.error('Error reading products:', error);
+            return [];
         }
     }
 
     async addProduct(productData) {
-        if (this.useMongoDb && this.isConnected) {
-            const product = new Product(productData);
-            return await product.save();
-        } else {
-            const products = this.readJsonFile(PRODUCTS_FILE);
+        try {
+            const products = await this.getProducts();
             const newProduct = {
-                _id: require('uuid').v4(),
                 ...productData,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
             products.push(newProduct);
-            this.writeJsonFile(PRODUCTS_FILE, products);
+            fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
             return newProduct;
+        } catch (error) {
+            console.error('Error adding product:', error);
+            throw error;
         }
     }
 
     async deleteProduct(productId) {
-        if (this.useMongoDb && this.isConnected) {
-            return await Product.findByIdAndDelete(productId);
-        } else {
-            const products = this.readJsonFile(PRODUCTS_FILE);
-            const index = products.findIndex(p => p._id === productId || p.id === productId);
-            if (index > -1) {
-                const deleted = products.splice(index, 1)[0];
-                this.writeJsonFile(PRODUCTS_FILE, products);
-                return deleted;
-            }
-            return null;
+        try {
+            const products = await this.getProducts();
+            const filteredProducts = products.filter(p => p.id !== productId);
+            fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(filteredProducts, null, 2));
+            return true;
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            throw error;
         }
     }
 
     // Queue methods
     async getQueue() {
-        if (this.useMongoDb && this.isConnected) {
-            return await QueueItem.find({ status: { $ne: 'done' } }).sort({ createdAt: 1 });
-        } else {
-            const queue = this.readJsonFile(QUEUE_FILE);
-            return queue.filter(item => item.status !== 'done');
-        }
-    }
-
-    async addQueueItem(queueData) {
-        if (this.useMongoDb && this.isConnected) {
-            const queueItem = new QueueItem(queueData);
-            return await queueItem.save();
-        } else {
-            const queue = this.readJsonFile(QUEUE_FILE);
-            const newQueueItem = {
-                id: require('uuid').v4(),
-                ...queueData,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            queue.push(newQueueItem);
-            this.writeJsonFile(QUEUE_FILE, queue);
-            return newQueueItem;
-        }
-    }
-
-    async updateQueueItemStatus(itemId, status) {
-        if (this.useMongoDb && this.isConnected) {
-            return await QueueItem.findByIdAndUpdate(
-                itemId, 
-                { status, updatedAt: new Date() }, 
-                { new: true }
-            );
-        } else {
-            const queue = this.readJsonFile(QUEUE_FILE);
-            const item = queue.find(q => q.id === itemId);
-            if (item) {
-                item.status = status;
-                item.updatedAt = new Date().toISOString();
-                this.writeJsonFile(QUEUE_FILE, queue);
-                return item;
-            }
-            return null;
-        }
-    }
-
-    async addFollowUp(itemId, followUpMessage) {
-        const followUp = {
-            message: followUpMessage,
-            timestamp: new Date().toISOString()
-        };
-
-        if (this.useMongoDb && this.isConnected) {
-            return await QueueItem.findByIdAndUpdate(
-                itemId,
-                { 
-                    $push: { followUps: followUp },
-                    updatedAt: new Date()
-                },
-                { new: true }
-            );
-        } else {
-            const queue = this.readJsonFile(QUEUE_FILE);
-            const item = queue.find(q => q.id === itemId);
-            if (item) {
-                if (!item.followUps) item.followUps = [];
-                item.followUps.push(followUp);
-                item.updatedAt = new Date().toISOString();
-                this.writeJsonFile(QUEUE_FILE, queue);
-                return item;
-            }
-            return null;
-        }
-    }
-
-    async deleteQueueItem(itemId) {
-        if (this.useMongoDb && this.isConnected) {
-            return await QueueItem.findByIdAndDelete(itemId);
-        } else {
-            const queue = this.readJsonFile(QUEUE_FILE);
-            const index = queue.findIndex(q => q.id === itemId);
-            if (index > -1) {
-                const deleted = queue.splice(index, 1)[0];
-                this.writeJsonFile(QUEUE_FILE, queue);
-                return deleted;
-            }
-            return null;
-        }
-    }
-
-    // JSON file helpers
-    readJsonFile(filePath) {
         try {
-            const data = fs.readFileSync(filePath, 'utf8');
-            return JSON.parse(data);
+            const data = fs.readFileSync(QUEUE_FILE, 'utf8');
+            const queue = JSON.parse(data);
+            // Filter out completed items that are older than 24 hours
+            const filtered = queue.filter(item => {
+                if (item.status === 'done') {
+                    const completedTime = new Date(item.updatedAt);
+                    const now = new Date();
+                    const hoursDiff = (now - completedTime) / (1000 * 60 * 60);
+                    return hoursDiff < 24;
+                }
+                return true;
+            });
+            
+            if (filtered.length !== queue.length) {
+                fs.writeFileSync(QUEUE_FILE, JSON.stringify(filtered, null, 2));
+            }
+            
+            return filtered;
         } catch (error) {
-            console.error(`Error reading ${filePath}:`, error);
+            console.error('Error reading queue:', error);
             return [];
         }
     }
 
-    writeJsonFile(filePath, data) {
+    async addQueueItem(queueData) {
         try {
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+            const queue = await this.getQueue();
+            const newItem = {
+                ...queueData,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                followUps: []
+            };
+            queue.push(newItem);
+            fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+            return newItem;
         } catch (error) {
-            console.error(`Error writing ${filePath}:`, error);
+            console.error('Error adding queue item:', error);
+            throw error;
+        }
+    }
+
+    async updateQueueItemStatus(itemId, status) {
+        try {
+            const queue = await this.getQueue();
+            const itemIndex = queue.findIndex(item => item.id === itemId);
+            
+            if (itemIndex === -1) {
+                throw new Error('Queue item not found');
+            }
+            
+            queue[itemIndex].status = status;
+            queue[itemIndex].updatedAt = new Date().toISOString();
+            
+            fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+            return queue[itemIndex];
+        } catch (error) {
+            console.error('Error updating queue item status:', error);
+            throw error;
+        }
+    }
+
+    async addFollowUp(itemId, followUpMessage) {
+        try {
+            const queue = await this.getQueue();
+            const itemIndex = queue.findIndex(item => item.id === itemId);
+            
+            if (itemIndex === -1) {
+                throw new Error('Queue item not found');
+            }
+            
+            if (!queue[itemIndex].followUps) {
+                queue[itemIndex].followUps = [];
+            }
+            
+            const followUp = {
+                id: Date.now().toString(),
+                message: followUpMessage,
+                timestamp: new Date().toISOString()
+            };
+            
+            queue[itemIndex].followUps.push(followUp);
+            queue[itemIndex].updatedAt = new Date().toISOString();
+            
+            fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+            return queue[itemIndex];
+        } catch (error) {
+            console.error('Error adding follow-up:', error);
+            throw error;
+        }
+    }
+
+    async deleteQueueItem(itemId) {
+        try {
+            const queue = await this.getQueue();
+            const filteredQueue = queue.filter(item => item.id !== itemId);
+            fs.writeFileSync(QUEUE_FILE, JSON.stringify(filteredQueue, null, 2));
+            return true;
+        } catch (error) {
+            console.error('Error deleting queue item:', error);
+            throw error;
         }
     }
 }
