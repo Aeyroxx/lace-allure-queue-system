@@ -1,0 +1,14 @@
+[
+  {
+    "id": "test-order-1",
+    "productId": "test-product-1", 
+    "productName": "Test Product",
+    "size": "M",
+    "color": "Blue",
+    "quantity": 1,
+    "courier": "J&T",
+    "status": "pending",
+    "createdAt": "2025-08-06T12:00:00.000Z",
+    "updatedAt": "2025-08-06T12:00:00.000Z"
+  }
+]

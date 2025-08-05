@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  lace-allure-queue:
+    build: .
+    container_name: lace-allure-queue
+    ports:
+      - "12025:12025"
+    environment:
+      - NODE_ENV=production
+      - PORT=12025
+      - MONGODB_URL=mongodb://192.168.1.200:27017/lace-allure-queue
+      - USE_MONGODB=true
+    volumes:
+      # Mount data directory for JSON fallback
+      - queue_data:/app/data
+      # Mount audio directory for Android TV audio files
+      - audio_data:/app/public/audio
+    restart: unless-stopped
+    networks:
+      - queue_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:12025/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  queue_data:
+    driver: local
+  audio_data:
+    driver: local
+
+networks:
+  queue_network:
+    driver: bridge
